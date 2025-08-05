@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Longitudinal-Brain-Depression-Trajectories-Analysis-ABCD"
+version = "0.1.0"
+description = "Associative analysis of brain structural changes and different depressive trajectories in adolescents"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "Qingkun Deng"}
+]
+license = {text = ""}
+
+dependencies = [
+"pandas",
+"matplotlib",
+"scikit-learn",
+"ipykernel",
+"plotly",
+"openpyxl",
+"numpy",
+]
+
+[tool.ruff]
+select = ["E", "F", "D", "I"]
+ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107", "E712", "E741", "D205", "D209", "D210"]
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.pixi.workspace]
+channels = ["conda-forge", "ejolly"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+Longitudinal-Brain-Depression-Trajectories-Analysis-ABCD = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.tasks]
+add_hook = "pre-commit install"
+
+[tool.pixi.dependencies]
+pymer4 = ">=0.9.2,<0.10"
+polars = ">=1.31.0,<2"
+statsmodels = ">=0.14.4,<0.15"
+
+[tool.pixi.feature.dev.dependencies]
+pre-commit = "*"
+ruff = "*"
+pip-tools = "*"
