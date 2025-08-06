@@ -21,24 +21,24 @@ Investigate associations between brain structural changes over time and depressi
 
 **Standardization Strategy**:
 
-- **DO NOT** standardize within waves (destroys temporal signal)
-- Combine all waves into long format first
-- Standardize across ALL time points using complete cases
-- Preserves between-wave changes needed for slope estimation
+- **Baseline standardization**: Use Wave 1 (baseline) mean/std parameters for all waves
+- Rationale: Preserves temporal trajectories while using least biased distribution
+- Later waves with systematic dropout would bias pooled standardization
 
-**Missing Data Handling**:
+**Sample Selection**:
 
-- Keep subjects with ≥1 datapoint (mixed-effects can estimate from partial data)
-- For standardization: Use all available non-missing values across all waves
-- Apply standardization parameters to all data (including partial cases)
+- **Require baseline data**: Essential for standardization reference and interpretation
+- Allow subjects with ≥1 additional timepoint for trajectory estimation
+- Mixed-effects models handle remaining missing data under MAR assumptions
 
 ### Step 1: Mixed-Effects Modeling
 
 For each brain region separately:
 
-- **Model**: `brain_feature ~ time + sex + age_baseline + site + (1 + time | subject)`
-- **Fixed effects**: Linear time trend, sex, baseline age, imaging site
+- **Model**: `brain_feature ~ time + sex + age_baseline + site + SES + baseline_depression + (1 + time | subject)`
+- **Fixed effects**: Linear time trend, sex, baseline age, imaging site, dropout predictors
 - **Random effects**: Subject-specific intercept and slope
+- **Dropout predictors**: Include SES, baseline depression to make MAR more plausible
 - **Extract**: Individual intercept (baseline) and slope (change rate) estimates
 
 ### Step 2: Trajectory Classification
@@ -49,6 +49,15 @@ For each brain region separately:
 - **Predictors**: Individual intercept and slope from Step 1
 - **Outcome**: 4-class trajectory membership
 - **Interpretation**: How baseline brain structure and rate of change associate with depression trajectories
+
+### Step 3: Missing Data Sensitivity Analysis
+
+**MAR Assumption**: Since MAR is untestable, conduct sensitivity analyses:
+
+- **Missingness patterns**: Examine systematic dropout by demographics, baseline measures
+- **Multiple imputation**: Compare results with different imputation strategies
+- **Pattern-mixture models**: Test if conclusions change under MNAR assumptions
+- **Complete case analysis**: Compare with baseline-only subjects as robustness check
 
 ## Statistical Considerations
 
