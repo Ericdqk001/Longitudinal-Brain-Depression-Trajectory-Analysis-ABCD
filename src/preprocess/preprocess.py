@@ -879,73 +879,92 @@ wave3_data = pd.read_csv(
     low_memory=False,
 )
 
-# Get baseline subjects and filter out follow-ups who are not in baseline
-baseline_subjects = baseline_data.index
-wave2_filtered = wave2_data[wave2_data.index.isin(baseline_subjects)]
-wave3_filtered = wave3_data[wave3_data.index.isin(baseline_subjects)]
+# Join the trajectories data before concatenation
 
-# Concatenate into long format
-long_data = pd.concat([baseline_data, wave2_filtered, wave3_filtered], axis=0)
-
-logging.info(f"Baseline subjects sample size: {len(baseline_data)}")
-logging.info(
-    f"2 year follow-up (filtered to baseline) sample size: {len(wave2_filtered)}"
+dep_traj_path = Path(
+    analysis_data_path,
+    "ABCD_BPM_4Trajectories_long.txt",
 )
-logging.info(
-    f"4 year follow-up (filtered to baseline) sample size: {len(wave3_filtered)}"
+
+dep_traj = pd.read_csv(
+    dep_traj_path,
+    sep="\t",
 )
-logging.info(f"Processed long data shape: {long_data.shape}")
 
+# Ensure src_subject_id is unique with information on trajectory and class
+dep_traj = dep_traj.groupby("src_subject_id").agg(
+    {"trajectory": "first", "class": "first"}
+)
 
-# %% This section joins the trajectory data
-
-# dep_traj_path = Path(
-#     analysis_data_path,
-#     "ABCD_BPM_4Trajectories_long.txt",
-# )
-
-# dep_traj = pd.read_csv(
-#     dep_traj_path,
-#     sep="\t",
-# )
-
-# # Ensure src_subject_id is unique with information on trajectory and class
-# dep_traj = dep_traj.groupby("src_subject_id").agg(
-#     {"trajectory": "first", "class": "first"}
-# )
-
-# dep_traj = dep_traj.rename(columns={"class": "class_label"})
+dep_traj = dep_traj.rename(columns={"class": "class_label"})
 
 # Remap tjrajectory to numeric values
 # old: (low - 2, increasing - 1, decreasing - 3, high - 4)
 # new: (low - 0, increasing - 1, decreasing - 2, high - 3)
 
-# class_label_mapping = {
-#     2: 0,
-#     1: 1,
-#     3: 2,
-#     4: 3,
-# }
+class_label_mapping = {
+    2: 0,
+    1: 1,
+    3: 2,
+    4: 3,
+}
 
-# # Apply the mapping to the class_label column as int
-# dep_traj["class_label"] = (
-#     dep_traj["class_label"].replace(class_label_mapping).astype(int)
-# ).astype("category")
+# Apply the mapping to the class_label column as int
+dep_traj["class_label"] = (
+    dep_traj["class_label"].replace(class_label_mapping).astype(int)
+).astype("category")
 
-# logging.info(
-#     "Remapping depression trajectory class labels to numeric values is error-free, Checked"  # noqa: E501
-# )
+logging.info(
+    "Remapping depression trajectory class labels to numeric values is error-free, Checked"  # noqa: E501
+)
 
-# # Drop trajectory column
-# dep_traj = dep_traj.drop(columns=["trajectory"])
+# Drop trajectory column
+dep_traj = dep_traj.drop(columns=["trajectory"])
 
-# t1w_all_cortical_features_cov_traj = mri_all_features_cov.join(
-#     dep_traj,
-#     how="left",
-# ).dropna()
+baseline_data_traj = baseline_data.join(
+    dep_traj,
+    how="left",
+).dropna()
 
-# logging.info(
-#     "Sample size with all imaging features, covariates and depression trajectories,"
-#     "number = %d",
-#     t1w_all_cortical_features_cov_traj.shape[0],
-# )
+wave2_data_traj = wave2_data.join(
+    dep_traj,
+    how="left",
+).dropna()
+
+wave3_data_traj = wave3_data.join(
+    dep_traj,
+    how="left",
+).dropna()
+
+# Get baseline subjects and filter out follow-ups who are not in baseline
+baseline_subjects = baseline_data_traj.index
+wave2_traj_filtered = wave2_data_traj[wave2_data_traj.index.isin(baseline_subjects)]
+wave3_traj_filtered = wave3_data_traj[wave3_data_traj.index.isin(baseline_subjects)]
+
+# Concatenate into long format
+long_data = pd.concat(
+    [baseline_data_traj, wave2_traj_filtered, wave3_traj_filtered],
+    axis=0,
+)
+
+logging.info(
+    f"Baseline subjects with trajectory data sample size: {len(baseline_data_traj)}"
+)
+logging.info(
+    f"2 year follow-up with trajectory data (filtered to baseline) sample size: {len(wave2_traj_filtered)}"  # noqa: E501
+)
+logging.info(
+    f"4 year follow-up with trajectory data (filtered to baseline) sample size: {len(wave3_traj_filtered)}"  # noqa: E501
+)
+logging.info(f"Processed long data shape: {long_data.shape}")
+
+# Save the long format data
+long_data.to_csv(
+    Path(
+        processed_data_path,
+        "mri_all_features_cov_long.csv",
+    ),
+    index=True,
+)
+
+# Standardize the data with the baseline mean and standard deviation
