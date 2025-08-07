@@ -15,50 +15,51 @@ all_waves = [
 version_name: str = "dev"
 experiment_number: int = 1
 
+data_store_path = Path(
+    "/",
+    "Volumes",
+    "GenScotDepression",
+)
+
+if data_store_path.exists():
+    logging.info("Mounted data store path: %s", data_store_path)
+
+analysis_root_path = Path(
+    data_store_path,
+    "users",
+    "Eric",
+    "depression_trajectories",
+)
+
+analysis_data_path = Path(
+    analysis_root_path,
+    "data",
+)
+
+version_path = Path(
+    analysis_root_path,
+    version_name,
+)
+
+version_path.mkdir(parents=True, exist_ok=True)
+
+experiments_path = Path(
+    version_path,
+    f"exp_{experiment_number}",
+)
+
+experiments_path.mkdir(parents=True, exist_ok=True)
+
+processed_data_path = Path(
+    experiments_path,
+    "processed_data",
+)
+
+
 for wave in all_waves:
     logging.info("-----------------------")
     logging.info("Processing wave: %s", wave)
     # %%
-
-    data_store_path = Path(
-        "/",
-        "Volumes",
-        "GenScotDepression",
-    )
-
-    if data_store_path.exists():
-        logging.info("Mounted data store path: %s", data_store_path)
-
-    analysis_root_path = Path(
-        data_store_path,
-        "users",
-        "Eric",
-        "depression_trajectories",
-    )
-
-    analysis_data_path = Path(
-        analysis_root_path,
-        "data",
-    )
-
-    version_path = Path(
-        analysis_root_path,
-        version_name,
-    )
-
-    version_path.mkdir(parents=True, exist_ok=True)
-
-    experiments_path = Path(
-        version_path,
-        f"exp_{experiment_number}",
-    )
-
-    experiments_path.mkdir(parents=True, exist_ok=True)
-
-    processed_data_path = Path(
-        experiments_path,
-        "processed_data",
-    )
 
     if not processed_data_path.exists():
         processed_data_path.mkdir(
@@ -589,7 +590,7 @@ for wave in all_waves:
     # %%
 
     # Drop eventname column
-    mri_all_features = mri_all_features.drop(columns="eventname")
+    # mri_all_features = mri_all_features.drop(columns="eventname")
 
     ### Add covariates to be considered in the analysis
 
@@ -832,11 +833,11 @@ for wave in all_waves:
 
     mri_all_features_cov = mri_all_features.join(
         covariates,
-        how="left",
+        how="inner",
     )
 
     logging.info(
-        "Sample size with all imaging features (with missing values) and covariates (with no missing values), number = %d, wave = %s",  # noqa: E501
+        "Sample size with all imaging features and covariates (with no missing values), number = %d, wave = %s",  # noqa: E501
         mri_all_features_cov.shape[0],
         wave,
     )
@@ -852,9 +853,49 @@ for wave in all_waves:
     )
 
     logging.info(
-        "Processed data with all imaging features and covariates saved to %s",
+        "Processed data with all imaging features and covariates (with no missing values) saved to %s",  # noqa: E501
         processed_data_path,
     )
+
+
+# %% This section joins all waves of the processed data together
+
+# Load each wave explicitly by name
+baseline_data = pd.read_csv(
+    Path(processed_data_path, "mri_all_features_cov_baseline_year_1_arm_1.csv"),
+    index_col=0,
+    low_memory=False,
+)
+
+wave2_data = pd.read_csv(
+    Path(processed_data_path, "mri_all_features_cov_2_year_follow_up_y_arm_1.csv"),
+    index_col=0,
+    low_memory=False,
+)
+
+wave3_data = pd.read_csv(
+    Path(processed_data_path, "mri_all_features_cov_4_year_follow_up_y_arm_1.csv"),
+    index_col=0,
+    low_memory=False,
+)
+
+# Get baseline subjects and filter out follow-ups who are not in baseline
+baseline_subjects = baseline_data.index
+wave2_filtered = wave2_data[wave2_data.index.isin(baseline_subjects)]
+wave3_filtered = wave3_data[wave3_data.index.isin(baseline_subjects)]
+
+# Concatenate into long format
+long_data = pd.concat([baseline_data, wave2_filtered, wave3_filtered], axis=0)
+
+logging.info(f"Baseline subjects sample size: {len(baseline_data)}")
+logging.info(
+    f"2 year follow-up (filtered to baseline) sample size: {len(wave2_filtered)}"
+)
+logging.info(
+    f"4 year follow-up (filtered to baseline) sample size: {len(wave3_filtered)}"
+)
+logging.info(f"Processed long data shape: {long_data.shape}")
+
 
 # %% This section joins the trajectory data
 
