@@ -902,6 +902,8 @@ def preprocess(
 
     exclude_cols = categorical_variables
 
+    exclude_cols.append("BMI_zscore")
+
     logging.info(
         "Excluding the following columns from standardisation: %s",
         ", ".join(exclude_cols),

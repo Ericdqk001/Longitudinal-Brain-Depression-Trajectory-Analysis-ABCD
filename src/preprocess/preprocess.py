@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 all_waves = [
     "baseline_year_1_arm_1",
@@ -590,13 +590,13 @@ for wave in all_waves:
     # %%
 
     # Drop eventname column
-    # mri_all_features = mri_all_features.drop(columns="eventname")
+    mri_all_features = mri_all_features.drop(columns="eventname")
 
     ### Add covariates to be considered in the analysis
 
     logging.info("Adding covariates to the imaging features")
 
-    # For site information (imaging device ID)
+    # For imaging device ID
     mri_y_adm_info_path = Path(
         imaging_path,
         "mri_y_adm_info.csv",
@@ -609,20 +609,6 @@ for wave in all_waves:
     )
 
     mri_y_adm_info = mri_y_adm_info[mri_y_adm_info.eventname == wave]
-
-    le = LabelEncoder()
-
-    # Using .fit_transform function to fit label
-    # encoder and return encoded label
-    label = le.fit_transform(mri_y_adm_info["mri_info_deviceserialnumber"])
-
-    logging.info("Add covariate: mri_info_deviceserialnumber")
-
-    mri_y_adm_info["img_device_label"] = label
-
-    logging.info(
-        "Using LabelEncoder to encode the imaging device ID is error-free, Checked"
-    )
 
     # For imaging site
     abcd_y_it_path = Path(
@@ -742,11 +728,11 @@ for wave in all_waves:
     height = height[height != 0]
 
     series_list = [
-        demographics_bl.demo_sex_v2,
-        mri_y_adm_info.img_device_label,
+        demographics_bl.demo_sex_v2,  # Baseline info
+        mri_y_adm_info.mri_info_deviceserialnumber,
         abcd_y_lt.interview_age,
         abcd_y_lt.age2,
-        household_income,
+        household_income,  # Baseline info
         family_id,
         site_id,
         weight,
@@ -898,7 +884,7 @@ dep_traj = dep_traj.groupby("src_subject_id").agg(
 
 dep_traj = dep_traj.rename(columns={"class": "class_label"})
 
-# Remap tjrajectory to numeric values
+# Remap trajectory to numeric values
 # old: (low - 2, increasing - 1, decreasing - 3, high - 4)
 # new: (low - 0, increasing - 1, decreasing - 2, high - 3)
 
@@ -936,14 +922,72 @@ wave3_data_traj = wave3_data.join(
     how="left",
 ).dropna()
 
+# Standardize data using baseline parameters before concatenation
+logging.info("Standardizing the continuous variables with baseline mean and std")
+
+categorical_variables = [
+    "demo_sex_v2",
+    "rel_family_id",
+    "demo_comb_income_v2",
+    "class_label",
+    "site_id_l",
+]
+
+# Add BMI_zscore and device ID (which will be encoded later) to exclude list
+exclude_cols = categorical_variables + ["BMI_zscore", "mri_info_deviceserialnumber"]
+
+logging.info(
+    "Excluding the following columns from standardisation: %s",
+    ", ".join(exclude_cols),
+)
+
+cols_to_scale = [col for col in baseline_data_traj.columns if col not in exclude_cols]
+
+# Fit scaler on baseline data only
+scaler = StandardScaler()
+scaler.fit(baseline_data_traj[cols_to_scale])
+
+logging.info("Fitted scaler on baseline data")
+
+# Apply baseline scaler parameters to all waves
+baseline_data_traj_rescaled = baseline_data_traj.copy()
+baseline_data_traj_rescaled[cols_to_scale] = scaler.transform(
+    baseline_data_traj[cols_to_scale]
+)
+
+wave2_data_traj_rescaled = wave2_data_traj.copy()
+wave2_data_traj_rescaled[cols_to_scale] = scaler.transform(
+    wave2_data_traj[cols_to_scale]
+)
+
+wave3_data_traj_rescaled = wave3_data_traj.copy()
+wave3_data_traj_rescaled[cols_to_scale] = scaler.transform(
+    wave3_data_traj[cols_to_scale]
+)
+
+logging.info("Applied baseline standardization parameters to all waves")
+
 # Get baseline subjects and filter out follow-ups who are not in baseline
-baseline_subjects = baseline_data_traj.index
-wave2_traj_filtered = wave2_data_traj[wave2_data_traj.index.isin(baseline_subjects)]
-wave3_traj_filtered = wave3_data_traj[wave3_data_traj.index.isin(baseline_subjects)]
+baseline_subjects = baseline_data_traj_rescaled.index
+wave2_traj_rescaled_filtered = wave2_data_traj_rescaled[
+    wave2_data_traj_rescaled.index.isin(baseline_subjects)
+]
+wave3_traj_rescaled_filtered = wave3_data_traj_rescaled[
+    wave3_data_traj_rescaled.index.isin(baseline_subjects)
+]
+
+# Add time variable to the dataframes
+baseline_data_traj_rescaled["time"] = 0
+wave2_traj_rescaled_filtered["time"] = 2
+wave3_traj_rescaled_filtered["time"] = 4
 
 # Concatenate into long format
 long_data = pd.concat(
-    [baseline_data_traj, wave2_traj_filtered, wave3_traj_filtered],
+    [
+        baseline_data_traj_rescaled,
+        wave2_traj_rescaled_filtered,
+        wave3_traj_rescaled_filtered,
+    ],
     axis=0,
 )
 
@@ -951,20 +995,41 @@ logging.info(
     f"Baseline subjects with trajectory data sample size: {len(baseline_data_traj)}"
 )
 logging.info(
-    f"2 year follow-up with trajectory data (filtered to baseline) sample size: {len(wave2_traj_filtered)}"  # noqa: E501
+    f"2 year follow-up with trajectory data (filtered to baseline) sample size: {len(wave2_traj_rescaled_filtered)}"  # noqa: E501
 )
 logging.info(
-    f"4 year follow-up with trajectory data (filtered to baseline) sample size: {len(wave3_traj_filtered)}"  # noqa: E501
+    f"4 year follow-up with trajectory data (filtered to baseline) sample size: {len(wave3_traj_rescaled_filtered)}"  # noqa: E501
 )
 logging.info(f"Processed long data shape: {long_data.shape}")
 
-# Save the long format data
+# Encode imaging device ID
+
+le = LabelEncoder()
+
+# Using .fit_transform function to fit label
+label = le.fit_transform(long_data["mri_info_deviceserialnumber"])
+
+long_data["img_device_label"] = label
+
+logging.info(
+    "Using LabelEncoder to encode the imaging device ID is error-free, Checked"
+)
+
+# Add img_device_label to the categorical variables list
+categorical_variables.append("img_device_label")
+
+# Convert categorical variables to proper type
+for col in categorical_variables:
+    if col in long_data.columns:
+        long_data[col] = long_data[col].astype("category")
+
+logging.info("Standardization with baseline parameters completed")
+
+# Save the standardized long format data
 long_data.to_csv(
     Path(
         processed_data_path,
-        "mri_all_features_cov_long.csv",
+        "mri_all_features_cov_long_standardized.csv",
     ),
     index=True,
 )
-
-# Standardize the data with the baseline mean and standard deviation
