@@ -582,13 +582,6 @@ def preprocess(
             dmir_mean_diffusivity_pass.shape[1],
         )
 
-        # dmir_mean_diffusivity_pass = dmir_mean_diffusivity_pass.dropna()
-
-        # logging.info(
-        #     "Sample size with complete MD data after QC, number = %d",
-        #     dmir_mean_diffusivity_pass.shape[0],
-        # )
-
         # Combine all the modalities
 
         mri_all_features = pd.concat(
@@ -1060,4 +1053,72 @@ def preprocess(
             "mri_all_features_cov_long_standardized.csv",
         ),
         index=True,
+    )
+
+    # Now take the average between hemispheres for the features that are bilateral
+
+    logging.info("Averaging bilateral features")
+
+    lh_columns = [col for col in long_data.columns if col.endswith("lh")]
+
+    logging.info("Number of left hemisphere features: %d", len(lh_columns))
+
+    rh_columns = [col for col in long_data.columns if col.endswith("rh")]
+
+    logging.info("Number of right hemisphere features: %d", len(rh_columns))
+
+    # Identify all other columns (covariates, unilateral features, Traj.)
+    other_columns = [
+        col for col in long_data.columns if col not in lh_columns + rh_columns
+    ]
+
+    # Check if the two lists match by region (assuming 'lh'/'rh' are prefixes)
+    lh_regions = [col.replace("lh", "") for col in lh_columns]
+
+    rh_regions = [col.replace("rh", "") for col in rh_columns]
+
+    if lh_regions == rh_regions:
+        logging.info("Left and right hemisphere feature lists MATCH by region.")
+
+    else:
+        logging.warning(
+            "Left and right hemisphere feature lists DO NOT MATCH by region."
+        )
+
+    def average_hemisphere_columns(df, lh_columns, rh_columns, other_columns):
+        avg_cols = {
+            lh.rstrip("lh"): (df[lh] + df[rh]) / 2
+            for lh, rh in zip(lh_columns, rh_columns)
+        }
+        other_cols = df[other_columns]
+        return pd.concat([pd.DataFrame(avg_cols), other_cols], axis=1)
+
+    long_data_avg = average_hemisphere_columns(
+        long_data,
+        lh_columns,
+        rh_columns,
+        other_columns,
+    )
+
+    logging.info("Averaging bilateral features is error-free, Checked")
+
+    # Save the averaged data
+    long_data_avg.to_csv(
+        Path(
+            processed_data_path,
+            "mri_all_features_cov_long_standardized_avg.csv",
+        ),
+        index=True,
+    )
+
+
+if __name__ == "__main__":
+    data_store_path = Path(
+        "/",
+        "Volumes",
+        "GenScotDepression",
+    )
+
+    preprocess(
+        data_store_path,
     )

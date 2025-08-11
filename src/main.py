@@ -20,7 +20,7 @@ def main(
 
 
 if __name__ == "__main__":
-    version_name = "test_2"
+    version_name = "dev"
 
     experiment_number = 1
 
