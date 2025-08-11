@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from pathlib import Path
@@ -41,6 +42,9 @@ def preprocess(
     ]
 
     logging.info("Starting preprocessing")
+
+    if data_store_path.exists():
+        logging.info("Mounted data store path: %s", data_store_path)
 
     analysis_root_path = Path(
         data_store_path,
@@ -1055,7 +1059,7 @@ def preprocess(
         index=True,
     )
 
-    # Now take the average between hemispheres for the features that are bilateral
+    # Take the average between hemispheres for the features that are bilateral
 
     logging.info("Averaging bilateral features")
 
@@ -1110,6 +1114,139 @@ def preprocess(
         ),
         index=True,
     )
+
+    ### Select the columns that are the phenotypes of interest for each modality
+
+    logging.info("Selecting features of interest for each modality")
+
+    ### Remove global features for all modality
+    logging.info("Removing global features for each modality")
+
+    logging.info("Cortical thickness global features:")
+    logging.info("%s", list(t1w_cortical_thickness_pass.columns[-3:]))
+
+    # Index 0 is eventname so start from 1
+    t1w_cortical_thickness_rois = list(t1w_cortical_thickness_pass.columns[1:-3])
+
+    # For cortical volume
+
+    logging.info("Cortical volume global features:")
+    logging.info("%s", list(t1w_cortical_volume_pass.columns[-3:]))
+
+    # Index 0 is eventname so start from 1
+    t1w_cortical_volume_rois = list(t1w_cortical_volume_pass.columns[1:-3])
+
+    # For surface area
+
+    logging.info("Cortical surface area global features:")
+    logging.info("%s", list(t1w_cortical_surface_area_pass.columns[-3:]))
+
+    # Index 0 is eventname so start from 1
+    t1w_cortical_surface_area_rois = list(t1w_cortical_surface_area_pass.columns[1:-3])
+
+    ### For subcortical volume
+
+    # NOTE: A list of global features selected by GPT, this might need to be updated
+
+    global_subcortical_features = [
+        "smri_vol_scs_csf",
+        "smri_vol_scs_wholeb",
+        "smri_vol_scs_intracranialv",
+        "smri_vol_scs_latventricles",
+        "smri_vol_scs_allventricles",
+        "smri_vol_scs_subcorticalgv",
+        "smri_vol_scs_suprateialv",
+        "smri_vol_scs_wmhint",
+    ]
+
+    logging.info("Subcortical volume global features:")
+    logging.info("%s", global_subcortical_features)
+
+    # FA global features
+    global_FA_features = [
+        "FA_all_dti_atlas_tract_fibers",
+        "FA_hemisphere_dti_atlas_tract_fibers_without_corpus_callosumrh",
+        "FA_hemisphere_dti_atlas_tract_fibers_without_corpus_callosumlh",
+        "FA_hemisphere_dti_atlas_tract_fibersrh",
+        "FA_hemisphere_dti_atlas_tract_fiberslh",
+    ]
+
+    logging.info("FA global features:")
+    logging.info("%s", global_FA_features)
+
+    # MD global features
+    global_MD_features = [
+        "MD_all_dti_atlas_tract_fibers",
+        "MD_hemisphere_dti_atlas_tract_fibers_without_corpus_callosumrh",
+        "MD_hemisphere_dti_atlas_tract_fibers_without_corpus_callosumlh",
+        "MD_hemisphere_dti_atlas_tract_fibersrh",
+        "MD_hemisphere_dti_atlas_tract_fiberslh",
+    ]
+
+    logging.info("MD global features:")
+    logging.info("%s", global_MD_features)
+
+    # Step 2: Select subcortical ROIs
+    t1w_subcortical_volume_rois = [
+        col
+        for col in t1w_subcortical_volume_pass.columns
+        if col not in global_subcortical_features and col != "eventname"
+    ]
+
+    # For tract features
+
+    FA_rois = [
+        col
+        for col in dmir_fractional_anisotropy_pass.columns
+        if col not in global_FA_features and col != "eventname"
+    ]
+
+    MD_rois = [
+        col
+        for col in dmir_mean_diffusivity_pass.columns
+        if col not in global_MD_features and col != "eventname"
+    ]
+
+    # Save features of interest for mixed effects models for each modalities
+
+    def get_rois(feature_list):
+        """Returns bilateral and unilateral features from a list of features."""
+        lh_roots = {f[:-2] for f in feature_list if f.endswith("lh")}
+        rh_roots = {f[:-2] for f in feature_list if f.endswith("rh")}
+        bilateral_roots = sorted(lh_roots & rh_roots)
+
+        # Unilateral = present in only one hemisphere or has no suffix
+        unilateral_features = [
+            f for f in feature_list if (not f.endswith("lh") and not f.endswith("rh"))
+        ]
+
+        return bilateral_roots + unilateral_features
+
+    # Assemble all features for repeated effects modeling
+    features_of_interest = {
+        "cortical_thickness": get_rois(t1w_cortical_thickness_rois),
+        "cortical_volume": get_rois(t1w_cortical_volume_rois),
+        "cortical_surface_area": get_rois(t1w_cortical_surface_area_rois),
+        "subcortical_volume": get_rois(t1w_subcortical_volume_rois),
+        "tract_FA": get_rois(FA_rois),
+        "tract_MD": get_rois(MD_rois),
+    }
+
+    logging.info(
+        "Creating features of interest for repeated effects modeling is error-free, Checked"  # noqa: E501
+    )
+
+    logging.info("Number of features for each modality:")
+    for modality, features in features_of_interest.items():
+        logging.info(f"{modality}: {len(features)} features")
+
+    features_for_repeated_effects_path = Path(
+        processed_data_path,
+        "features_of_interest.json",
+    )
+
+    with open(features_for_repeated_effects_path, "w") as f:
+        json.dump(features_of_interest, f)
 
 
 if __name__ == "__main__":

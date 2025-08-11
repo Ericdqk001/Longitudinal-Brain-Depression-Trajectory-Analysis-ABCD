@@ -2802,7 +2802,7 @@ packages:
 - pypi: .
   name: longitudinal-brain-depression-trajectories-analysis-abcd
   version: 0.1.0
-  sha256: 6dba3dc8adabc5735a69c91dfdd9ffd377e3ba02825977713d2a28fe51b3779d
+  sha256: 97ba800b663f3ec8c441e85e613503a801a704f086119f4696a69e1dde28b6fe
   requires_dist:
   - pandas
   - matplotlib
