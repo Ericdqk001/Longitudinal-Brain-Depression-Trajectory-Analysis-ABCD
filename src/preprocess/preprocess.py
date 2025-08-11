@@ -1001,10 +1001,15 @@ def preprocess(
         wave3_data_traj_rescaled.index.isin(baseline_subjects)
     ]
 
-    # Add time variable to the dataframes
+    # Add time variable and eventname to the dataframes
     baseline_data_traj_rescaled["time"] = 0
+    baseline_data_traj_rescaled["eventname"] = "baseline_year_1_arm_1"
+
     wave2_traj_rescaled_filtered["time"] = 2
+    wave2_traj_rescaled_filtered["eventname"] = "2_year_follow_up_y_arm_1"
+
     wave3_traj_rescaled_filtered["time"] = 4
+    wave3_traj_rescaled_filtered["eventname"] = "4_year_follow_up_y_arm_1"
 
     # Concatenate into long format
     long_data = pd.concat(
