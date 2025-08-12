@@ -137,6 +137,7 @@ random_effects = "(0 + time|src_subject_id) + (1|site_id_l/rel_family_id)"
 
 # Storage for results
 failed_models = []
+slopes_list = []  # Store polars DataFrames for each feature
 
 # Fit models for each modality and feature
 logging.info("Starting mixed-effects modeling...")
@@ -199,6 +200,22 @@ for modality, brain_features in features_of_interest.items():
                 logging.info(
                     "Model converged for feature: %s (modality: %s)", feature, modality
                 )
+
+                # Extract subject slopes (this returns a polars DataFrame from pymer4)
+                subject_slopes_df = model.ranef["src_subject_id"]
+
+                # Convert to polars DataFrame
+                slopes_pl = pl.DataFrame(
+                    {
+                        "src_subject_id": subject_slopes_df["level"].to_list(),
+                        f"{feature}_slope": subject_slopes_df["time"].to_list(),
+                        "modality": modality,
+                    }
+                )
+
+                # Store in list for later joining
+                slopes_list.append(slopes_pl)
+
             else:
                 logging.warning(
                     "Model failed to converge for feature: %s (modality: %s)",
@@ -234,3 +251,33 @@ if failed_models:
     logging.warning("Failed models: %s", failed_models[:10])
     if len(failed_models) > 10:
         logging.warning("... and %d more failed models", len(failed_models) - 10)
+
+# Combine all slopes into single DataFrame and save
+if slopes_list:
+    # Start with first DataFrame
+    final_slopes_df = slopes_list[0]
+
+    # Join all other DataFrames on src_subject_id
+    for slopes_df in slopes_list[1:]:
+        final_slopes_df = final_slopes_df.join(
+            slopes_df, on="src_subject_id", how="outer"
+        )
+
+    # Create results directory if it doesn't exist
+    results_path = Path(experiments_path, "results")
+    results_path.mkdir(parents=True, exist_ok=True)
+
+    # Save slopes using polars
+    slopes_output_path = Path(results_path, "subject_brain_slopes.csv")
+    final_slopes_df.write_csv(slopes_output_path)
+
+    logging.info("Subject slopes saved to: %s", slopes_output_path)
+    logging.info("Slopes DataFrame shape: %s", final_slopes_df.shape)
+    logging.info("Features with slopes: %d", len(slopes_list))
+
+    # Show sample of results
+    logging.info("Sample of slopes DataFrame:")
+    print(final_slopes_df.head())
+
+else:
+    logging.warning("No slopes to save - all models failed")
