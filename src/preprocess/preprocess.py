@@ -1001,6 +1001,30 @@ def preprocess(
         wave3_data_traj_rescaled.index.isin(baseline_subjects)
     ]
 
+    # Filter out baseline-only subjects (subjects with no follow-up data)
+    wave2_subjects = set(wave2_traj_rescaled_filtered.index)
+    wave3_subjects = set(wave3_traj_rescaled_filtered.index)
+    subjects_with_followup = wave2_subjects | wave3_subjects
+
+    baseline_subjects_set = set(baseline_data_traj_rescaled.index)
+    baseline_only_subjects = baseline_subjects_set - subjects_with_followup
+
+    logging.info("Total baseline subjects: %d", len(baseline_subjects_set))
+    logging.info("Subjects with follow-up data: %d", len(subjects_with_followup))
+    logging.info(
+        "Baseline-only subjects (to be filtered): %d", len(baseline_only_subjects)
+    )
+    logging.info(
+        "Subjects to keep: %d", len(baseline_subjects_set) - len(baseline_only_subjects)
+    )
+
+    # Filter baseline data to remove baseline-only subjects
+    baseline_data_traj_rescaled = baseline_data_traj_rescaled[
+        ~baseline_data_traj_rescaled.index.isin(baseline_only_subjects)
+    ]
+
+    logging.info("Filtered baseline data shape: %s", baseline_data_traj_rescaled.shape)
+
     # Add time variable and eventname to the dataframes
     baseline_data_traj_rescaled["time"] = 0
     baseline_data_traj_rescaled["eventname"] = "baseline_year_1_arm_1"
