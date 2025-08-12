@@ -78,6 +78,7 @@ categorical_vars = [
     "site_id_l",
     "rel_family_id",
     "demo_comb_income_v2",
+    "eventname",
 ]
 
 data = data.with_columns(
@@ -90,6 +91,36 @@ data = data.with_columns(
 
 logging.info("Converted categorical variables to category dtype")
 
+# Create baseline values for each brain feature as covariates
+logging.info("Creating baseline covariates for slope-only models...")
+
+# Get baseline data
+baseline_data = data.filter(pl.col("eventname") == "baseline_year_1_arm_1")
+
+# Get all brain features
+all_brain_features = []
+for features in features_of_interest.values():
+    all_brain_features.extend(features)
+
+logging.info(
+    "Found %d total brain features across all modalities", len(all_brain_features)
+)
+
+# Create baseline covariate mapping for each brain feature
+for feature in all_brain_features:
+    if feature in baseline_data.columns:
+        baseline_feature_name = f"{feature}_baseline"
+
+        # Create baseline values for this feature
+        baseline_values = baseline_data.select(["src_subject_id", feature]).rename(
+            {feature: baseline_feature_name}
+        )
+
+        # Join baseline values to main data
+        data = data.join(baseline_values, on="src_subject_id", how="left")
+
+logging.info("Created baseline covariates for all brain features")
+
 # Base fixed effects (common to all modalities)
 base_fixed_effects = [
     "time",
@@ -101,8 +132,8 @@ base_fixed_effects = [
     "img_device_label",
 ]
 
-# Random effects
-random_effects = "(1 + time|src_subject_id) + (1|site_id_l/rel_family_id)"
+# Random effects - slope only (no random intercepts for subjects)
+random_effects = "(0 + time|src_subject_id) + (1|site_id_l/rel_family_id)"
 
 # Storage for results
 failed_models = []
@@ -143,8 +174,14 @@ for modality, brain_features in features_of_interest.items():
             )
 
         try:
+            # Add baseline covariate for this specific feature
+            baseline_feature_name = f"{feature}_baseline"
+            feature_fixed_effects = fixed_effects + [baseline_feature_name]
+
             # Construct formula
-            formula = f"{feature} ~ {' + '.join(fixed_effects)} + {random_effects}"
+            formula = (
+                f"{feature} ~ {' + '.join(feature_fixed_effects)} + {random_effects}"
+            )
 
             logging.info(
                 "Fitting model for feature: %s (modality: %s)", feature, modality
@@ -156,7 +193,7 @@ for modality, brain_features in features_of_interest.items():
             model.fit(summarize=False, verbose=False)
 
             # Check convergence
-            converged = model.converged
+            converged = model.fitted
 
             if converged:
                 logging.info(
