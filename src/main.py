@@ -2,6 +2,7 @@ import logging
 import shutil
 from pathlib import Path
 
+from modelling.scripts.mixed_effect import derive_individual_slopes
 from preprocess.preprocess import preprocess
 
 
@@ -9,10 +10,16 @@ def main(
     data_store_path,
     version_name: str = "",
     experiment_number: int = 1,
-    # predictor: str = "",
 ):
     # Call the preprocess function from the prepare_img module
     preprocess(
+        data_store_path=data_store_path,
+        version_name=version_name,
+        experiment_number=experiment_number,
+    )
+
+    # Call the derive_individual_slopes function from the mixed_effect module
+    derive_individual_slopes(
         data_store_path=data_store_path,
         version_name=version_name,
         experiment_number=experiment_number,
