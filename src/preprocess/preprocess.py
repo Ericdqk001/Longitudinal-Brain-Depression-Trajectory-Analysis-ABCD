@@ -43,13 +43,11 @@ def preprocess(
 
     logging.info("Starting preprocessing")
 
-    if data_store_path.exists():
-        logging.info("Mounted data store path: %s", data_store_path)
+    # if data_store_path.exists():
+    #     logging.info("Mounted data store path: %s", data_store_path)
 
     analysis_root_path = Path(
         data_store_path,
-        "users",
-        "Eric",
         "depression_trajectories",
     )
 
@@ -65,6 +63,7 @@ def preprocess(
 
     experiments_path = Path(
         version_path,
+        "experiments",
         f"exp_{experiment_number}",
     )
 
@@ -86,8 +85,6 @@ def preprocess(
 
         core_data_path = Path(
             data_store_path,
-            "data",
-            "abcd",
             "release5.1",
             "core",
         )
@@ -1025,6 +1022,7 @@ def preprocess(
 
     logging.info("Filtered baseline data shape: %s", baseline_data_traj_rescaled.shape)
 
+    # TODO: Here are some pandas caveats that might need to be addressed
     # Add time variable and eventname to the dataframes
     baseline_data_traj_rescaled["time"] = 0
     baseline_data_traj_rescaled["eventname"] = "baseline_year_1_arm_1"
@@ -1120,7 +1118,7 @@ def preprocess(
 
     def average_hemisphere_columns(df, lh_columns, rh_columns, other_columns):
         avg_cols = {
-            lh.rstrip("lh"): (df[lh] + df[rh]) / 2
+            "img_" + lh.rstrip("lh"): (df[lh] + df[rh]) / 2
             for lh, rh in zip(lh_columns, rh_columns)
         }
         other_cols = df[other_columns]
@@ -1242,7 +1240,7 @@ def preprocess(
         """Returns bilateral and unilateral features from a list of features."""
         lh_roots = {f[:-2] for f in feature_list if f.endswith("lh")}
         rh_roots = {f[:-2] for f in feature_list if f.endswith("rh")}
-        bilateral_roots = sorted(lh_roots & rh_roots)
+        bilateral_roots = sorted(["img_" + root for root in (lh_roots & rh_roots)])
 
         # Unilateral = present in only one hemisphere or has no suffix
         unilateral_features = [
@@ -1276,15 +1274,3 @@ def preprocess(
 
     with open(features_for_repeated_effects_path, "w") as f:
         json.dump(features_of_interest, f)
-
-
-if __name__ == "__main__":
-    data_store_path = Path(
-        "/",
-        "Volumes",
-        "GenScotDepression",
-    )
-
-    preprocess(
-        data_store_path,
-    )
