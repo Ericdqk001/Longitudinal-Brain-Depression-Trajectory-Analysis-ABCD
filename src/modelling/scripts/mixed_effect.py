@@ -5,11 +5,6 @@ from pathlib import Path
 import polars as pl
 from pymer4.models import lmer
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
 
 def derive_individual_slopes(
     data_store_path: Path,
@@ -22,7 +17,7 @@ def derive_individual_slopes(
     analysis_root_path = Path(
         data_store_path,
         "users",
-        "Eric",
+        "eric",
         "depression_trajectories",
     )
 
@@ -33,6 +28,7 @@ def derive_individual_slopes(
 
     experiments_path = Path(
         version_path,
+        "experiments",
         f"exp_{experiment_number}",
     )
 
@@ -163,7 +159,7 @@ def derive_individual_slopes(
 
         logging.info("Fixed effects for %s: %s", modality, fixed_effects)
 
-        for feature in brain_features[:2]:
+        for feature in brain_features:
             feature_count += 1
 
             if feature_count % 50 == 0:
@@ -207,7 +203,6 @@ def derive_individual_slopes(
                         {
                             "src_subject_id": subject_slopes_df["level"].to_list(),
                             f"{feature}_slope": subject_slopes_df["time"].to_list(),
-                            "modality": modality,
                         }
                     )
 
@@ -258,7 +253,7 @@ def derive_individual_slopes(
         # Join all other DataFrames on src_subject_id
         for slopes_df in slopes_list[1:]:
             final_slopes_df = final_slopes_df.join(
-                slopes_df, on="src_subject_id", how="outer"
+                slopes_df, on="src_subject_id", how="inner"
             )
 
         # Create results directory if it doesn't exist

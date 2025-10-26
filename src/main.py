@@ -1,9 +1,66 @@
 import logging
 import shutil
+import subprocess
 from pathlib import Path
 
-from modelling.scripts.mixed_effect import derive_individual_slopes
+# from modelling.scripts.mixed_effect import derive_individual_slopes
 from preprocess.preprocess import preprocess
+
+
+def fit_multinomial_models(
+    data_store_path: Path,
+    version_name: str = "dev",
+    experiment_number: int = 1,
+):
+    """Call R script for multinomial logistic regression analysis."""
+    logging.info("Starting multinomial regression analysis (R)...")
+
+    # Get path to R script
+    r_script_path = (
+        Path(__file__).parent / "modelling" / "scripts" / "multinomial_function.R"
+    )
+
+    # Build R command
+    # Source the R file and call the function
+    r_command = (
+        f"source('{r_script_path}'); "
+        f"fit_multinomial_models("
+        f"'{data_store_path}', "
+        f"'{version_name}', "
+        f"{experiment_number})"
+    )
+
+    cmd = ["Rscript", "-e", r_command]
+
+    logging.info(f"Executing R script: {r_script_path}")
+    logging.info("Note: First run may take time to install R packages...")
+
+    # Run R script with real-time output streaming
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        universal_newlines=True,
+    )
+
+    # Stream output in real-time
+    for line in process.stdout:
+        if line.strip():
+            logging.info(f"[R] {line.rstrip()}")
+
+    # Wait for process to complete
+    process.wait()
+
+    # Check return code
+    if process.returncode != 0:
+        logging.error(f"R script failed with return code {process.returncode}")
+        raise RuntimeError(
+            f"Multinomial regression R script failed with code {process.returncode}"
+        )
+
+    logging.info("Multinomial regression analysis completed successfully")
 
 
 def main(
@@ -19,28 +76,32 @@ def main(
     )
 
     # Call the derive_individual_slopes function from the mixed_effect module
-    derive_individual_slopes(
-        data_store_path=data_store_path,
-        version_name=version_name,
-        experiment_number=experiment_number,
-    )
+    # derive_individual_slopes(
+    #     data_store_path=data_store_path,
+    #     version_name=version_name,
+    #     experiment_number=experiment_number,
+    # )
+
+    # Call the fit_multinomial_models function (R script)
+    # fit_multinomial_models(
+    #     data_store_path=data_store_path,
+    #     version_name=version_name,
+    #     experiment_number=experiment_number,
+    # )
 
 
 if __name__ == "__main__":
     version_name = "dev"
 
-    experiment_number = 1
+    experiment_number = 2
 
-    data_store_path = Path(
-        "/",
-        "Volumes",
-        "GenScotDepression",
-    )
+    # Eddie staged data path
+    data_store_path = Path("/Volumes/GenScotDepression")
 
     analysis_root_path = Path(
         data_store_path,
         "users",
-        "Eric",
+        "eric",
         "depression_trajectories",
     )
 

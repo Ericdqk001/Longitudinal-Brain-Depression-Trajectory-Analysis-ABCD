@@ -48,6 +48,8 @@ def preprocess(
 
     analysis_root_path = Path(
         data_store_path,
+        "users",
+        "eric",
         "depression_trajectories",
     )
 
@@ -85,6 +87,8 @@ def preprocess(
 
         core_data_path = Path(
             data_store_path,
+            "data",
+            "abcd",
             "release5.1",
             "core",
         )
@@ -925,6 +929,7 @@ def preprocess(
     )
 
     # Drop trajectory column
+    # Drop NA values in trajectory datas
     dep_traj = dep_traj.drop(columns=["trajectory"])
 
     baseline_data_traj = baseline_data.join(
@@ -1118,7 +1123,7 @@ def preprocess(
 
     def average_hemisphere_columns(df, lh_columns, rh_columns, other_columns):
         avg_cols = {
-            "img_" + lh.rstrip("lh"): (df[lh] + df[rh]) / 2
+            "img_" + lh[:-2]: (df[lh] + df[rh]) / 2
             for lh, rh in zip(lh_columns, rh_columns)
         }
         other_cols = df[other_columns]
@@ -1274,3 +1279,40 @@ def preprocess(
 
     with open(features_for_repeated_effects_path, "w") as f:
         json.dump(features_of_interest, f)
+
+
+if __name__ == "__main__":
+    data_store_path = Path(
+        "/",
+        "Volumes",
+        "GenScotDepression",
+    )
+
+    if data_store_path.exists():
+        logging.info("Mounted data store path: %s", data_store_path)
+
+    analysis_root_path = Path(
+        data_store_path,
+        "users",
+        "Eric",
+        "depression_trajectories",
+    )
+
+    analysis_data_path = Path(
+        analysis_root_path,
+        "data",
+    )
+
+    processed_data_path = Path(
+        analysis_root_path,
+        "dev",
+        "processed_data",
+    )
+
+    core_data_path = Path(
+        data_store_path,
+        "data",
+        "abcd",
+        "release5.1",
+        "core",
+    )
