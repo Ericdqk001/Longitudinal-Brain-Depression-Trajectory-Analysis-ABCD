@@ -1,0 +1,7 @@
+pandas
+scikit-learn
+numpy
+pymer4
+polars>=1.31.0,<2
+statsmodels>=0.14.4,<0.15
+rpy2

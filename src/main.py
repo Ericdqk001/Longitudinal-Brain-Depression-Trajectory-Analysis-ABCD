@@ -3,7 +3,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-# from modelling.scripts.mixed_effect import derive_individual_slopes
+from modelling.scripts.mixed_effect import derive_individual_slopes
 from preprocess.preprocess import preprocess
 
 
@@ -76,18 +76,18 @@ def main(
     )
 
     # Call the derive_individual_slopes function from the mixed_effect module
-    # derive_individual_slopes(
-    #     data_store_path=data_store_path,
-    #     version_name=version_name,
-    #     experiment_number=experiment_number,
-    # )
+    derive_individual_slopes(
+        data_store_path=data_store_path,
+        version_name=version_name,
+        experiment_number=experiment_number,
+    )
 
     # Call the fit_multinomial_models function (R script)
-    # fit_multinomial_models(
-    #     data_store_path=data_store_path,
-    #     version_name=version_name,
-    #     experiment_number=experiment_number,
-    # )
+    fit_multinomial_models(
+        data_store_path=data_store_path,
+        version_name=version_name,
+        experiment_number=experiment_number,
+    )
 
 
 if __name__ == "__main__":
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     experiment_number = 2
 
     # Eddie staged data path
-    data_store_path = Path("/Volumes/GenScotDepression")
+    data_store_path = Path("/exports/igmm/eddie/GenScotDepression")
 
     analysis_root_path = Path(
         data_store_path,
